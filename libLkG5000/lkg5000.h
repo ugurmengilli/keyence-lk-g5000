@@ -40,8 +40,8 @@ signals:
     void dataReady();
 
 private:
-	QList<QString> responses_;  // list of raw responses to the last commands
-	QSerialPort* serial_;
+    QList<QString> responses_;  // list of raw responses to the last commands
+    QSerialPort* serial_;
 };
 
 // Make the type known to all template-based functions and in direct signal-slot connections
