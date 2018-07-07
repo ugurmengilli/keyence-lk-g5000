@@ -1,0 +1,5 @@
+# Build results
+[Bb]uild/
+Debug/
+Release/
+Win32/
