@@ -5,8 +5,6 @@
 #include <QSerialPort>
 #include <QSerialPortInfo>
 #include <QThread>
-#define EIGEN_DONT_ALIGN_STATICALLY
-#define EIGEN_STACK_ALLOCATION_LIMIT 0
 #include "lkg5000.h"
 
 namespace Ui {
@@ -17,6 +15,12 @@ class Dialog : public QDialog
 {
     Q_OBJECT
 
+    enum DisplayMode
+    {
+        Data,
+        Measurement,
+        AutoMeasurement,
+    };
 public:
     explicit Dialog(QWidget *parent = 0);
     ~Dialog();
@@ -25,15 +29,16 @@ private slots:
     void displayData();
     void displayError();
 	void on_connectBtn_clicked();
-    void on_keyenceCommandBtn_clicked();
+    void on_measureBtn_clicked();
+    void on_sendCommandBtn_clicked();
 
 signals:
 	void readNext();
 
 private:
     Ui::Dialog* ui;
-	int delayCounter;
-    LkG5000* scanner;
+    DisplayMode display_mode_;
+    LkG5000* scanner_;
 
 	static const char CR = (char)0x0D;
 };
