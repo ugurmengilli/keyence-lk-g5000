@@ -11,7 +11,7 @@ LkG5000::LkG5000(int headNO, QObject* parent) :
     connect(serial_, &QSerialPort::errorOccurred, this, &LkG5000::errorOccurred);
     connect(serial_, &QSerialPort::readyRead, this, &LkG5000::readData);
     // Assign empty values:
-    QByteArray head_no = QByteArray::number(0).append(QByteArray::number(headNO));
+    head_no_ = QByteArray::number(0).append(QByteArray::number(headNO));
     responses_.empty();
 }
 
@@ -34,9 +34,29 @@ QSerialPort::SerialPortError LkG5000::getErrorCode() const
     return serial_->error();
 }
 
+QMap<int, double>& LkG5000::getMeasuredValues()
+{
+    return measured_values_;
+}
+
 const QList<QString>& LkG5000::getResponses() const
 {
     return responses_;
+}
+
+void LkG5000::measure()
+{
+    // After sending the measurement command, record the measured value using the event loop. When
+    // the signal dataReady is emitted, it is guarateed that the controller responded to the command.
+    connect(this, &LkG5000::dataReady,
+            this, &LkG5000::recordMeasuredValueOutput, Qt::UniqueConnection);
+    QByteArray cmd_measured_value_output =  // Command structure
+        QByteArray("MS,").append(head_no_).append(CR);
+    // Record the msec elapsed from initialization time before writing the command. The measurement
+    // value is invalid by default. If measurement is succesful, the last key is called and the
+    // correct value is written.
+    measured_values_.insert(QTime::currentTime().msecsSinceStartOfDay(), 100);
+    serial_->write(cmd_measured_value_output);
 }
 
 bool LkG5000::open()
@@ -56,6 +76,7 @@ void LkG5000::setPortName(QString port)
 
 void LkG5000::writeCommand(QByteArray command)
 {
+    disconnect(this, &LkG5000::dataReady, this, &LkG5000::recordMeasuredValueOutput);
     serial_->write(command.append(CR));
 }
 
@@ -81,10 +102,10 @@ void LkG5000::readData()
         current_response.append(split_data[i]);
         responses_.append(current_response);
         emit dataReady();
-        current_response = QString("");	// Clean current_response. If there are multiple items, the
-        // next complete response will be appended to current_response. This loop skips the last
-        // item since it is incomplete or empty due to split(). Therefore, it won't be appended to
-        // the responses_.
+        // Clean current_response. If there are multiple items, the next complete response will be
+        // appended to current_response. This loop skips the last item since it is incomplete or 
+        // empty due to split(). Therefore, it won't be appended to the responses_.
+        current_response = QString("");
     }
     // - If for-loop is skipped, the only item in split_data is an incomplete response. The count
     // is 1 and index is 0, so append (count - 1)th = 0th item to current_response for next call to
@@ -92,4 +113,13 @@ void LkG5000::readData()
     // - If for-loop is processed, then the last element is an incomplete response and current_response
     // is empty. Then, append (count - 1)th element to empty current_response.
     current_response.append(split_data[split_data.count() - 1]);
+}
+
+void LkG5000::recordMeasuredValueOutput()
+{
+    bool measurement_OK = false;
+    double measured_value = responses_.takeLast().right(8).toDouble(&measurement_OK);
+    if (measurement_OK)
+        measured_values_.last() = measured_value;
+    emit measurementReady();
 }
