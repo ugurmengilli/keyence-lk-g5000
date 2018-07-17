@@ -29,6 +29,9 @@ Dialog::~Dialog()
 
 void Dialog::displayData()
 {
+    // To prevent unintended calls, disconnect this function from the signals
+    disconnect(scanner_, 0, this, 0);
+
     QList<QString> data;
 
     switch (display_mode_)
@@ -39,6 +42,9 @@ void Dialog::displayData()
         for (int i = 0; i < data.count(); i++)
             ui->outBrowser->append(data[i]);
         break;
+    case Dialog::AutoMeasurement:
+        connect(scanner_, &LkG5000::measurementReady,
+                this, &Dialog::displayData, Qt::UniqueConnection);
     case Dialog::Measurement:
         ui->outBrowser->append(
             QTime::fromMSecsSinceStartOfDay(
@@ -46,13 +52,9 @@ void Dialog::displayData()
         ui->outBrowser->append(
             QString::number(scanner_->getMeasuredValues().last(), 'f', 6));
         break;
-    case Dialog::AutoMeasurement:
-        break;
     default:
         break;
     }
-    // To prevent unintended calls, disconnect this function from the signals
-    disconnect(scanner_, 0, this, 0);
 }
 
 void Dialog::displayError()
@@ -84,10 +86,23 @@ void Dialog::on_connectBtn_clicked()
 
 void Dialog::on_measureBtn_clicked()
 {
-    connect(scanner_, &LkG5000::measurementReady, this, &Dialog::displayData, Qt::UniqueConnection);
-    display_mode_ = Measurement;    // For the correct decoding of the display data
+    connect(scanner_, &LkG5000::measurementReady,
+            this, &Dialog::displayData, Qt::UniqueConnection);
 
-    scanner_->measure();
+    if (ui->measureBtn->text() == "Stop") {
+        scanner_->autoMeasure(0);
+        ui->measureBtn->setText("Measure");
+    }
+    else if (ui->autoCheckBox->isChecked()) {
+        display_mode_ = AutoMeasurement;
+        scanner_->autoMeasure(ui->measurementCycle->value());
+
+        ui->measureBtn->setText("Stop");
+    }
+    else {
+        display_mode_ = Measurement;    // For the correct decoding of the display data
+        scanner_->measure();
+    }
 }
 
 void Dialog::on_sendCommandBtn_clicked()
