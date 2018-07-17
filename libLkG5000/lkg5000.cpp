@@ -19,6 +19,15 @@ LkG5000::~LkG5000()
 {
 }
 
+void LkG5000::autoMeasure(uint msec)
+{
+    static int timer_id = -1;
+    if (msec)
+        timer_id = startTimer(msec, Qt::TimerType::PreciseTimer);
+    else
+        killTimer(timer_id);
+}
+
 void LkG5000::clearResponses()
 {
     responses_.clear();
@@ -122,4 +131,9 @@ void LkG5000::recordMeasuredValueOutput()
     if (measurement_OK)
         measured_values_.last() = measured_value;
     emit measurementReady();
+}
+
+void LkG5000::timerEvent(QTimerEvent *event)
+{
+    return measure();
 }

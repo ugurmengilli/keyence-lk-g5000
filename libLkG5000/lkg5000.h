@@ -17,6 +17,9 @@ public:
     static const char CR = (char)0x0D;
 
 public slots:
+    /// <summary> Calls the measure() function with given interval.</summary>
+    /// <param name="msec"> Interval for measure to be called in milliseconds. </param>
+    void autoMeasure(uint msec);
     void clearResponses();
     void close();
     /// <summary> Gets error code returned by the serial port. See Qt SerialPortError enumeration
@@ -37,6 +40,9 @@ public slots:
     void writeCommand(QByteArray command);
     void setPortName(QString port);
     void setBaudRate(qint32 baudRate = QSerialPort::Baud115200);
+
+protected:
+    void timerEvent(QTimerEvent *event);
 
 private slots:
     void recordMeasuredValueOutput();
