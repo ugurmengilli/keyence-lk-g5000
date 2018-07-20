@@ -5,6 +5,7 @@
 #include <QObject>
 #include <QSerialPort>
 #include <QTime>
+#include <QVector>
 
 class LkG5000 : public QObject
 {
@@ -20,7 +21,6 @@ public slots:
     /// <summary> Calls the measure() function with given interval.</summary>
     /// <param name="msec"> Interval for measure to be called in milliseconds. </param>
     void autoMeasure(uint msec);
-    void clearResponses();
     void close();
     /// <summary> Gets error code returned by the serial port. See Qt SerialPortError enumeration
     /// for details about the error codes. </summary>
@@ -28,14 +28,17 @@ public slots:
     /// <summary> Gets the list of time stamps and the measured values as a reference. </summary>
     /// <return> List of time stamps and the measured values. </return>
     QMap<int, double>& getMeasuredValues();
-    /// <summary> Gets a list of raw responses sent by the LK-G5000. Raw responses to the measure()
-    /// function are not recorded in this list. See getMeasuredValues for the records. </summary>
-    const QList<QString>& getResponses() const;
+    /// <summary> Gets the raw response of the last valid command. Raw responses to the implemented
+    /// functions are not recorded in this list. See the summaries of related commands.
+    /// e.g. measure(); ---> getMeasuredValue();</summary>
+    /// <return> Raw response from the LK-G5000 controller. </return>
+    QString getResponse();
     /// <summary> Sends the measurement command and records the time.
     /// </summary>
     void measure();
     bool open();
-    /// <summary> Writes any command given by the protocol and adds CR at the end of it. </summary>
+    /// <summary> Writes a command described in communication protocol and adds CR at the end of
+    /// it. This command should NOT BE CALLED DURING AUTO-MEASUREMENT!. </summary>
     /// <param name="command"> Any command without CR at the end of it </param>
     void writeCommand(QByteArray command);
     void setPortName(QString port);
@@ -55,13 +58,15 @@ signals:
 	/// <summary> Emitted when serial port reads a response until CR. Then the response can be
     /// read safely by connecting a slot. </summary>
     void dataReady();
+    /// <summary> Emitted when the measurement response is recorded to the log with the time when
+    /// the measurement command is sent. </summary>
     void measurementReady();
 
 private:
     QByteArray head_no_;    // The position of the scanner socket on the controller.
     QMap<int, double> measured_values_;     // Log of the measurement times and values.
-    QList<QString> responses_;      // List of raw responses to the last commands.
-    QSerialPort* serial_;   // Serial communication with the LK-G5000 controller
+	QVector<QString> responses_;    // List of raw responses to the last commands.
+	QSerialPort* serial_;   // Serial communication with the LK-G5000 controller
 };
 
 // Make the type known to all template-based functions and in direct signal-slot connections

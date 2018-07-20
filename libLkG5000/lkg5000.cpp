@@ -12,7 +12,7 @@ LkG5000::LkG5000(int headNO, QObject* parent) :
     connect(serial_, &QSerialPort::readyRead, this, &LkG5000::readData);
     // Assign empty values:
     head_no_ = QByteArray::number(0).append(QByteArray::number(headNO));
-    responses_.empty();
+    responses_.reserve(150);    // some space for faster allocation.
 }
 
 LkG5000::~LkG5000()
@@ -22,15 +22,12 @@ LkG5000::~LkG5000()
 void LkG5000::autoMeasure(uint msec)
 {
     static int timer_id = -1;
+    responses_.clear();     // Before starting a measurement series since it would corrupt the
+    // measurement log by reading the first item in this list.
     if (msec)
         timer_id = startTimer(msec, Qt::TimerType::PreciseTimer);
     else
         killTimer(timer_id);
-}
-
-void LkG5000::clearResponses()
-{
-    responses_.clear();
 }
 
 void LkG5000::close()
@@ -48,9 +45,11 @@ QMap<int, double>& LkG5000::getMeasuredValues()
     return measured_values_;
 }
 
-const QList<QString>& LkG5000::getResponses() const
+QString LkG5000::getResponse()
 {
-    return responses_;
+    if (responses_.isEmpty())
+        return QString();
+    return responses_.takeFirst();
 }
 
 void LkG5000::measure()
@@ -61,9 +60,8 @@ void LkG5000::measure()
             this, &LkG5000::recordMeasuredValueOutput, Qt::UniqueConnection);
     QByteArray cmd_measured_value_output =  // Command structure
         QByteArray("MS,").append(head_no_).append(CR);
-    // Record the msec elapsed from initialization time before writing the command. The measurement
-    // value is invalid by default. If measurement is succesful, the last key is called and the
-    // correct value is written.
+    // Before writing the command, record the current time as milliseconds. The measurement
+    // value is invalid by default. If measurement is succesful, the correct value is written.
     measured_values_.insert(QTime::currentTime().msecsSinceStartOfDay(), 100);
     serial_->write(cmd_measured_value_output);
 }
@@ -127,7 +125,10 @@ void LkG5000::readData()
 void LkG5000::recordMeasuredValueOutput()
 {
     bool measurement_OK = false;
-    double measured_value = responses_.takeLast().right(8).toDouble(&measurement_OK);
+    // Take the first unhandled response from the list and convert to double. Measurement mode
+    // does not allow configuration commands, which ensures that the unhandled response is a 
+    // measurement response. Therefore, header check for the response can be skipped.
+    double measured_value = responses_.takeFirst().right(8).toDouble(&measurement_OK);
     if (measurement_OK)
         measured_values_.last() = measured_value;
     emit measurementReady();
