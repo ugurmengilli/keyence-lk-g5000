@@ -12,6 +12,7 @@ LkG5000::LkG5000(int headNO, QObject* parent) :
     connect(serial_, &QSerialPort::readyRead, this, &LkG5000::readData);
     // Assign empty values:
     head_no_ = QByteArray::number(0).append(QByteArray::number(headNO));
+    measurement_keys_to_record_.reserve(10);
     responses_.reserve(150);    // some space for faster allocation.
 }
 
@@ -58,12 +59,19 @@ void LkG5000::measure()
     // the signal dataReady is emitted, it is guarateed that the controller responded to the command.
     connect(this, &LkG5000::dataReady,
             this, &LkG5000::recordMeasuredValueOutput, Qt::UniqueConnection);
+
     QByteArray cmd_measured_value_output =  // Command structure
         QByteArray("MS,").append(head_no_).append(CR);
-    // Before writing the command, record the current time as milliseconds. The measurement
-    // value is invalid by default. If measurement is succesful, the correct value is written.
-    measured_values_.insert(QTime::currentTime().msecsSinceStartOfDay(), 100);
     serial_->write(cmd_measured_value_output);
+
+    // After writing the command, record the current time as milliseconds. The measurement
+    // value is invalid by default. If measurement is succesful, the correct value is written using
+    // the corresponding key.
+    measured_values_.insert(QTime::currentTime().msecsSinceStartOfDay(), 100);
+    // Add the key of the measurement to the queue for recording in the correct order even if
+    // another measurement command is sent before the response of the previous one is recorded.
+    measurement_keys_to_record_.append(measured_values_.lastKey());
+
 }
 
 bool LkG5000::open()
@@ -129,8 +137,9 @@ void LkG5000::recordMeasuredValueOutput()
     // does not allow configuration commands, which ensures that the unhandled response is a 
     // measurement response. Therefore, header check for the response can be skipped.
     double measured_value = responses_.takeFirst().right(8).toDouble(&measurement_OK);
-    if (measurement_OK)
-        measured_values_.last() = measured_value;
+    if (measurement_OK)     // replace the measured value for the next measurement call.
+        measured_values_.insert(measurement_keys_to_record_.takeFirst(), measured_value);
+
     emit measurementReady();
 }
 

@@ -65,6 +65,7 @@ signals:
 private:
     QByteArray head_no_;    // The position of the scanner socket on the controller.
     QMap<int, double> measured_values_;     // Log of the measurement times and values.
+    QVector<int> measurement_keys_to_record_;   // Order of the measurements to be recorded.
 	QVector<QString> responses_;    // List of raw responses to the last commands.
 	QSerialPort* serial_;   // Serial communication with the LK-G5000 controller
 };
